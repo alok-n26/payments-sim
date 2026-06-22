@@ -123,6 +123,16 @@ export function joinOrRejoin(participantId: string | undefined, displayName?: st
   }
 
   s.participants.push(participant);
+
+  // Late-joiners in round 2 get connected to a random correspondent
+  if (s.round === 2 && s.correspondentIds.length > 0) {
+    const correspondents = s.participants.filter((p) => p.isCorrespondent);
+    if (correspondents.length > 0) {
+      const c = correspondents[Math.floor(Math.random() * correspondents.length)];
+      s.connections.push({ fromId: id, toId: c.id });
+    }
+  }
+
   addEvent("participant_joined", `${name} joined the network`, id);
   return participant;
 }
@@ -143,12 +153,13 @@ export function setRound(round: RoundId) {
     s.chainSplit = false;
   }
 
-  if (round === 2 && s.correspondentIds.length === 0) {
-    assignCorrespondents();
-  }
-
   if (round === 1) {
     generateSparseConnections();
+  }
+
+  if (round === 2) {
+    if (s.correspondentIds.length === 0) assignCorrespondents();
+    else generateCorrespondentConnections(); // re-wire if correspondents already assigned
   }
 
   addEvent("round_change", `Advanced to Round ${round}`);
@@ -176,6 +187,31 @@ function generateSparseConnections() {
   s.connections = conns;
 }
 
+// ─── Connections (Round 2) ────────────────────────────────────────────────────
+// Hub-and-spoke: each regular bank gets one home correspondent.
+// Correspondents form a full mesh with each other (nostro/vostro accounts).
+
+function generateCorrespondentConnections() {
+  const s = st();
+  const correspondents = s.participants.filter((p) => p.isCorrespondent);
+  if (correspondents.length === 0) return;
+
+  const conns: NetworkConnection[] = [];
+
+  for (const bank of s.participants.filter((p) => !p.isCorrespondent)) {
+    const c = correspondents[Math.floor(Math.random() * correspondents.length)];
+    conns.push({ fromId: bank.id, toId: c.id });
+  }
+
+  for (let i = 0; i < correspondents.length; i++) {
+    for (let j = i + 1; j < correspondents.length; j++) {
+      conns.push({ fromId: correspondents[i].id, toId: correspondents[j].id });
+    }
+  }
+
+  s.connections = conns;
+}
+
 // ─── Correspondents (Round 2) ─────────────────────────────────────────────────
 
 export function assignCorrespondents(ids?: string[]) {
@@ -194,38 +230,63 @@ export function assignCorrespondents(ids?: string[]) {
   targets.forEach((p) => (p.isCorrespondent = true));
   s.correspondentIds = targets.map((p) => p.id);
   addEvent("system", `${targets.length} correspondent banks assigned`);
+  generateCorrespondentConnections();
 }
 
 // ─── Payment routing helpers ──────────────────────────────────────────────────
 
 function findRouteViaCorrespondents(fromId: string, toId: string): PaymentRoute | null {
   const s = st();
-  const direct = getConnectedIds(fromId);
-  if (direct.includes(toId)) {
-    return { hops: [fromId, toId], fees: 0, delayMs: 0 };
+  const allCorrespondents = s.participants.filter((p) => p.isCorrespondent && !p.isFrozen && !p.isSanctioned);
+  if (allCorrespondents.length === 0) return null;
+
+  const sender    = getParticipant(fromId);
+  const recipient = getParticipant(toId);
+
+  // Return the correspondent(s) a given participant connects to
+  function homeCorrespondents(participantId: string): string[] {
+    return allCorrespondents
+      .filter((c) => s.connections.some(
+        (conn) => (conn.fromId === participantId && conn.toId === c.id) ||
+                  (conn.fromId === c.id && conn.toId === participantId)
+      ))
+      .map((c) => c.id);
   }
 
-  const correspondents = s.participants.filter((p) => p.isCorrespondent && !p.isFrozen && !p.isSanctioned);
-
-  for (const c of correspondents) {
-    if (c.id !== fromId && c.id !== toId) {
-      return { hops: [fromId, c.id, toId], fees: CORRESPONDENT_FEE, delayMs: CORRESPONDENT_DELAY_MS };
-    }
+  // Correspondents route directly to each other
+  if (sender?.isCorrespondent && recipient?.isCorrespondent) {
+    return { hops: [fromId, toId], fees: CORRESPONDENT_FEE, delayMs: CORRESPONDENT_DELAY_MS };
   }
 
-  for (const c1 of correspondents) {
-    for (const c2 of correspondents) {
-      if (c1.id !== c2.id && c1.id !== fromId && c2.id !== toId) {
-        return {
-          hops: [fromId, c1.id, c2.id, toId],
-          fees: CORRESPONDENT_FEE * 2,
-          delayMs: CORRESPONDENT_DELAY_MS * 2,
-        };
-      }
-    }
+  // One side is a correspondent — one hop through the non-correspondent's home
+  if (sender?.isCorrespondent) {
+    const recipientHomes = homeCorrespondents(toId);
+    if (recipientHomes.length === 0) return null;
+    return { hops: [fromId, recipientHomes[0], toId], fees: CORRESPONDENT_FEE, delayMs: CORRESPONDENT_DELAY_MS };
+  }
+  if (recipient?.isCorrespondent) {
+    const senderHomes = homeCorrespondents(fromId);
+    if (senderHomes.length === 0) return null;
+    return { hops: [fromId, senderHomes[0], toId], fees: CORRESPONDENT_FEE, delayMs: CORRESPONDENT_DELAY_MS };
   }
 
-  return null;
+  // Both are regular banks — route through their home correspondents
+  const senderHomes    = homeCorrespondents(fromId);
+  const recipientHomes = homeCorrespondents(toId);
+  if (senderHomes.length === 0 || recipientHomes.length === 0) return null;
+
+  // 1-hop: shared home correspondent
+  const shared = senderHomes.find((c) => recipientHomes.includes(c));
+  if (shared) {
+    return { hops: [fromId, shared, toId], fees: CORRESPONDENT_FEE, delayMs: CORRESPONDENT_DELAY_MS };
+  }
+
+  // 2-hop: different home correspondents (they connect to each other in the mesh)
+  return {
+    hops: [fromId, senderHomes[0], recipientHomes[0], toId],
+    fees: CORRESPONDENT_FEE * 2,
+    delayMs: CORRESPONDENT_DELAY_MS * 2,
+  };
 }
 
 // ─── Payment initiation ───────────────────────────────────────────────────────

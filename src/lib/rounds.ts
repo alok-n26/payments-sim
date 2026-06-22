@@ -19,8 +19,8 @@ export const ROUND_CONFIGS: Record<RoundId, RoundConfig> = {
     id: 2,
     title: "The rise of correspondent banking",
     concept: "Correspondent banks act as intermediaries — but every hop costs money and time.",
-    debriefText: "Payments now route through correspondents. Participants receive less than was sent. Each hop adds €1 fee and a 2-second delay.",
-    presenterNotes: "Assign correspondents first (3-5 participants become correspondent banks). Then generate tasks. Watch the route display: Bank #4 → Correspondent A → Bank #22. Ask the audience: who absorbs the fees?",
+    debriefText: "Every payment must now route through at least one correspondent. Direct bank-to-bank connections are gone. Each hop costs €1 and adds a 2-second delay.",
+    presenterNotes: "Correspondents are auto-assigned and the network rewires into a hub-and-spoke. Each regular bank connects to one correspondent; correspondents connect to each other. Route display shows: Bank A → Correspondent → Bank B (1 hop, shared correspondent) or Bank A → Correspondent 1 → Correspondent 2 → Bank B (2 hops, different correspondents). Ask the audience: who absorbs the fees?",
   },
   3: {
     id: 3,
