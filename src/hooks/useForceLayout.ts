@@ -25,6 +25,7 @@ export function useForceLayout({ width, height, onTick }: Options) {
   const edgesRef = useRef<ForceEdge[]>([]);
   const rafRef = useRef<number | null>(null);
   const runningRef = useRef(false);
+  const pinnedRef = useRef<Set<string>>(new Set());
 
   const tick = useCallback(() => {
     if (!runningRef.current) return;
@@ -86,6 +87,7 @@ export function useForceLayout({ width, height, onTick }: Options) {
     const damping = 0.85;
     const padding = 60;
     for (const n of nodeArr) {
+      if (pinnedRef.current.has(n.id)) { n.vx = 0; n.vy = 0; continue; }
       const nn = n as ForceNode & { fx: number; fy: number };
       n.vx = (n.vx + nn.fx) * damping;
       n.vy = (n.vy + nn.fy) * damping;
@@ -136,7 +138,10 @@ export function useForceLayout({ width, height, onTick }: Options) {
     edgesRef.current = edges;
   }, []);
 
+  const pinNode = useCallback((id: string) => { pinnedRef.current.add(id); }, []);
+  const unpinNode = useCallback((id: string) => { pinnedRef.current.delete(id); }, []);
+
   useEffect(() => () => stop(), [stop]);
 
-  return { start, stop, setNodes, setEdges, nodesRef };
+  return { start, stop, setNodes, setEdges, nodesRef, pinNode, unpinNode };
 }
