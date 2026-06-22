@@ -20,17 +20,32 @@ interface Options {
   onTick: (nodes: Map<string, ForceNode>) => void;
 }
 
+// Alpha decays from 1→0 over ~300 ticks (~5s at 60fps), scaling all forces.
+// When alpha reaches zero the RAF loop stops — nodes stay wherever they landed.
+const ALPHA_DECAY = 0.985; // multiply per tick
+const ALPHA_MIN   = 0.004;
+
 export function useForceLayout({ width, height, onTick }: Options) {
-  const nodesRef = useRef<Map<string, ForceNode>>(new Map());
-  const edgesRef = useRef<ForceEdge[]>([]);
-  const rafRef = useRef<number | null>(null);
+  const nodesRef   = useRef<Map<string, ForceNode>>(new Map());
+  const edgesRef   = useRef<ForceEdge[]>([]);
+  const rafRef     = useRef<number | null>(null);
   const runningRef = useRef(false);
-  const pinnedRef = useRef<Set<string>>(new Set());
+  const alphaRef   = useRef(0);
+  const pinnedRef  = useRef<Set<string>>(new Set());
 
   const tick = useCallback(() => {
-    if (!runningRef.current) return;
-    const nodes = nodesRef.current;
-    const edges = edgesRef.current;
+    const alpha = alphaRef.current;
+    if (alpha < ALPHA_MIN) {
+      runningRef.current = false;
+      // Zero all velocities so nodes don't drift when simulation resumes
+      for (const n of nodesRef.current.values()) { n.vx = 0; n.vy = 0; }
+      onTick(nodesRef.current);
+      return;
+    }
+    alphaRef.current = alpha * ALPHA_DECAY;
+
+    const nodes   = nodesRef.current;
+    const edges   = edgesRef.current;
     const nodeArr = Array.from(nodes.values());
     const cx = width / 2;
     const cy = height / 2;
@@ -42,7 +57,7 @@ export function useForceLayout({ width, height, onTick }: Options) {
     }
 
     // Repulsion between all pairs
-    const repulsion = 1800;
+    const repulsion = 3000;
     for (let i = 0; i < nodeArr.length; i++) {
       for (let j = i + 1; j < nodeArr.length; j++) {
         const a = nodeArr[i] as ForceNode & { fx: number; fy: number };
@@ -60,7 +75,7 @@ export function useForceLayout({ width, height, onTick }: Options) {
 
     // Spring attraction along edges
     const springLen = Math.min(width, height) * 0.28;
-    const springK = 0.018;
+    const springK   = 0.04;
     for (const edge of edges) {
       const a = nodes.get(edge.source) as (ForceNode & { fx: number; fy: number }) | undefined;
       const b = nodes.get(edge.target) as (ForceNode & { fx: number; fy: number }) | undefined;
@@ -76,21 +91,21 @@ export function useForceLayout({ width, height, onTick }: Options) {
     }
 
     // Center gravity
-    const gravity = 0.007;
+    const gravity = 0.012;
     for (const n of nodeArr) {
       const nn = n as ForceNode & { fx: number; fy: number };
       nn.fx += (cx - n.x) * gravity;
       nn.fy += (cy - n.y) * gravity;
     }
 
-    // Integrate
-    const damping = 0.65;
+    // Integrate — forces scaled by alpha so movement fades as simulation cools
+    const damping = 0.8;
     const padding = 60;
     for (const n of nodeArr) {
       if (pinnedRef.current.has(n.id)) { n.vx = 0; n.vy = 0; continue; }
       const nn = n as ForceNode & { fx: number; fy: number };
-      n.vx = (n.vx + nn.fx) * damping;
-      n.vy = (n.vy + nn.fy) * damping;
+      n.vx = (n.vx + nn.fx * alpha) * damping;
+      n.vy = (n.vy + nn.fy * alpha) * damping;
       n.x = Math.max(padding, Math.min(width - padding, n.x + n.vx));
       n.y = Math.max(padding, Math.min(height - padding, n.y + n.vy));
     }
@@ -99,16 +114,21 @@ export function useForceLayout({ width, height, onTick }: Options) {
     rafRef.current = requestAnimationFrame(tick);
   }, [width, height, onTick]);
 
-  const start = useCallback(() => {
-    if (runningRef.current) return;
-    runningRef.current = true;
-    rafRef.current = requestAnimationFrame(tick);
-  }, [tick]);
-
   const stop = useCallback(() => {
     runningRef.current = false;
+    alphaRef.current = 0;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
   }, []);
+
+  // Run the simulation from a hot start and let it cool to rest on its own.
+  const settle = useCallback(() => {
+    for (const n of nodesRef.current.values()) { n.vx = 0; n.vy = 0; }
+    alphaRef.current = 1.0;
+    if (!runningRef.current) {
+      runningRef.current = true;
+      rafRef.current = requestAnimationFrame(tick);
+    }
+  }, [tick]);
 
   const setNodes = useCallback((ids: string[]) => {
     const existing = nodesRef.current;
@@ -119,7 +139,6 @@ export function useForceLayout({ width, height, onTick }: Options) {
       if (existing.has(id)) {
         next.set(id, existing.get(id)!);
       } else {
-        // Place new nodes in a circle with jitter
         const angle = Math.random() * Math.PI * 2;
         const r = Math.min(width, height) * 0.3;
         next.set(id, {
@@ -138,10 +157,10 @@ export function useForceLayout({ width, height, onTick }: Options) {
     edgesRef.current = edges;
   }, []);
 
-  const pinNode = useCallback((id: string) => { pinnedRef.current.add(id); }, []);
+  const pinNode   = useCallback((id: string) => { pinnedRef.current.add(id); }, []);
   const unpinNode = useCallback((id: string) => { pinnedRef.current.delete(id); }, []);
 
   useEffect(() => () => stop(), [stop]);
 
-  return { start, stop, setNodes, setEdges, nodesRef, pinNode, unpinNode };
+  return { settle, stop, setNodes, setEdges, nodesRef, pinNode, unpinNode };
 }

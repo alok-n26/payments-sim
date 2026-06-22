@@ -70,9 +70,11 @@ export default function NetworkPage() {
   const [particles, setParticles] = useState<Particle[]>([]);
   const [vp, setVp] = useState<Viewport>({ x: 0, y: 0, scale: 1 });
   const [cursor, setCursor] = useState("default");
+  const [settling, setSettling] = useState(false);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const vpRef = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
+  const prevRoundRef = useRef<number>(-1);
   const lastTickRef = useRef<number>(performance.now());
   const animRafRef = useRef<number | null>(null);
 
@@ -127,7 +129,16 @@ export default function NetworkPage() {
       }
     }
     forceLayout.setEdges(edges);
-    forceLayout.start();
+
+    // Only re-settle when the round changes (or on first load)
+    if (simState.round !== prevRoundRef.current) {
+      prevRoundRef.current = simState.round;
+      setSettling(true);
+      forceLayout.settle();
+      // Clear the "settling" indicator after the simulation cools (~5s)
+      setTimeout(() => setSettling(false), 5500);
+    }
+
     const nodeIds = new Set(ids);
     syncPayments(simState.payments, nodeIds);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -252,6 +263,12 @@ export default function NetworkPage() {
     vpRef.current = next;
     setVp(next);
   }, []);
+
+  const handleSettle = useCallback(() => {
+    setSettling(true);
+    forceLayout.settle();
+    setTimeout(() => setSettling(false), 5500);
+  }, [forceLayout]);
 
   // ── Hover cursor on nodes ───────────────────────────────────────────────────
   const handleMouseMoveForCursor = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
@@ -465,23 +482,36 @@ export default function NetworkPage() {
             </g>{/* end viewport group */}
           </svg>
 
-          {/* ── Zoom controls overlay ── */}
+          {/* ── Controls overlay ── */}
           <div className="absolute bottom-16 right-4 flex flex-col gap-1">
             <button
-              onClick={() => zoomBy(1.25)}
-              className="w-9 h-9 bg-slate-800/90 hover:bg-slate-700 text-white rounded-lg text-lg font-bold leading-none flex items-center justify-center border border-slate-700 transition-colors select-none"
-              title="Zoom in"
-            >+</button>
-            <button
-              onClick={() => zoomBy(1 / 1.25)}
-              className="w-9 h-9 bg-slate-800/90 hover:bg-slate-700 text-white rounded-lg text-lg font-bold leading-none flex items-center justify-center border border-slate-700 transition-colors select-none"
-              title="Zoom out"
-            >−</button>
-            <button
-              onClick={resetView}
-              className="w-9 h-9 bg-slate-800/90 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold leading-none flex items-center justify-center border border-slate-700 transition-colors select-none"
-              title="Reset view"
-            >⊡</button>
+              onClick={handleSettle}
+              disabled={settling}
+              className="px-2 h-9 bg-slate-800/90 hover:bg-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-700 transition-colors select-none whitespace-nowrap"
+              title="Re-run layout"
+            >
+              {settling ? (
+                <span className="inline-block w-3 h-3 border-2 border-slate-400 border-t-white rounded-full animate-spin" />
+              ) : "↺"}
+              Reorganise
+            </button>
+            <div className="flex gap-1">
+              <button
+                onClick={() => zoomBy(1.25)}
+                className="flex-1 h-9 bg-slate-800/90 hover:bg-slate-700 text-white rounded-lg text-lg font-bold leading-none flex items-center justify-center border border-slate-700 transition-colors select-none"
+                title="Zoom in"
+              >+</button>
+              <button
+                onClick={() => zoomBy(1 / 1.25)}
+                className="flex-1 h-9 bg-slate-800/90 hover:bg-slate-700 text-white rounded-lg text-lg font-bold leading-none flex items-center justify-center border border-slate-700 transition-colors select-none"
+                title="Zoom out"
+              >−</button>
+              <button
+                onClick={resetView}
+                className="flex-1 h-9 bg-slate-800/90 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold leading-none flex items-center justify-center border border-slate-700 transition-colors select-none"
+                title="Reset view"
+              >⊡</button>
+            </div>
           </div>
 
           {/* Hint */}
