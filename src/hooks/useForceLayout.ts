@@ -42,7 +42,7 @@ export function useForceLayout({ width, height, onTick }: Options) {
     }
 
     // Repulsion between all pairs
-    const repulsion = 4000;
+    const repulsion = 1800;
     for (let i = 0; i < nodeArr.length; i++) {
       for (let j = i + 1; j < nodeArr.length; j++) {
         const a = nodeArr[i] as ForceNode & { fx: number; fy: number };
@@ -60,7 +60,7 @@ export function useForceLayout({ width, height, onTick }: Options) {
 
     // Spring attraction along edges
     const springLen = Math.min(width, height) * 0.28;
-    const springK = 0.04;
+    const springK = 0.018;
     for (const edge of edges) {
       const a = nodes.get(edge.source) as (ForceNode & { fx: number; fy: number }) | undefined;
       const b = nodes.get(edge.target) as (ForceNode & { fx: number; fy: number }) | undefined;
@@ -76,7 +76,7 @@ export function useForceLayout({ width, height, onTick }: Options) {
     }
 
     // Center gravity
-    const gravity = 0.015;
+    const gravity = 0.007;
     for (const n of nodeArr) {
       const nn = n as ForceNode & { fx: number; fy: number };
       nn.fx += (cx - n.x) * gravity;
@@ -84,7 +84,7 @@ export function useForceLayout({ width, height, onTick }: Options) {
     }
 
     // Integrate
-    const damping = 0.85;
+    const damping = 0.65;
     const padding = 60;
     for (const n of nodeArr) {
       if (pinnedRef.current.has(n.id)) { n.vx = 0; n.vy = 0; continue; }
