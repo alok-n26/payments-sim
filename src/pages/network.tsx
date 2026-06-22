@@ -227,7 +227,10 @@ export default function NetworkPage() {
     } else if (drag.mode === "node" && drag.nodeId) {
       const world = svgToWorld(svgPt.x, svgPt.y, cur.x, cur.y, cur.scale);
       const node = forceLayout.nodesRef.current.get(drag.nodeId);
-      if (node) { node.x = world.x; node.y = world.y; node.vx = 0; node.vy = 0; }
+      if (node) {
+        node.x = world.x; node.y = world.y; node.vx = 0; node.vy = 0;
+        forceLayout.nudge(); // push updated position into React state when sim is stopped
+      }
     }
   }, [forceLayout]);
 

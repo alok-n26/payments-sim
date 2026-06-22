@@ -159,8 +159,11 @@ export function useForceLayout({ width, height, onTick }: Options) {
 
   const pinNode   = useCallback((id: string) => { pinnedRef.current.add(id); }, []);
   const unpinNode = useCallback((id: string) => { pinnedRef.current.delete(id); }, []);
+  // Fire onTick once without advancing the simulation — used during node drag
+  // when the simulation has already stopped and there's no running RAF loop.
+  const nudge = useCallback(() => { onTick(nodesRef.current); }, [onTick]);
 
   useEffect(() => () => stop(), [stop]);
 
-  return { settle, stop, setNodes, setEdges, nodesRef, pinNode, unpinNode };
+  return { settle, stop, setNodes, setEdges, nodesRef, pinNode, unpinNode, nudge };
 }
