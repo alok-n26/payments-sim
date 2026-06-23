@@ -118,17 +118,14 @@ export default function NetworkPage() {
     if (!simState) return;
     const ids = simState.participants.map((p) => p.id);
 
-    // Detect new participants before updating the layout (nodesRef still has old state)
     const newIds = ids.filter(id => !forceLayout.nodesRef.current.has(id));
     const hasNewParticipants = newIds.length > 0;
-
     const roundChanged = simState.round !== prevRoundRef.current;
 
     // Round change → unpin everything so the full layout reorganises
-    if (roundChanged) {
-      ids.forEach(id => forceLayout.unpinNode(id));
-    }
+    if (roundChanged) ids.forEach(id => forceLayout.unpinNode(id));
 
+    // setNodes always calls onTick internally, so new nodes appear immediately
     forceLayout.setNodes(ids);
 
     const edges = simState.connections.map((c) => ({ source: c.fromId, target: c.toId }));
@@ -145,16 +142,14 @@ export default function NetworkPage() {
     forceLayout.setEdges(edges);
 
     if (roundChanged) {
-      // Full reorganise — move all nodes
       prevRoundRef.current = simState.round;
       prevParticipantCountRef.current = ids.length;
       setSettling(true);
       forceLayout.settle();
       setTimeout(() => setSettling(false), 5500);
     } else if (hasNewParticipants) {
-      // New participants joined: pin existing nodes so they don't move,
-      // run the simulation only to place the newcomers, then unpin.
       prevParticipantCountRef.current = ids.length;
+      // Pin existing nodes, settle only for newcomers, then unpin
       const existingIds = ids.filter(id => !newIds.includes(id));
       existingIds.forEach(id => forceLayout.pinNode(id));
       forceLayout.settle();
