@@ -151,10 +151,7 @@ export function useForceLayout({ width, height, onTick }: Options) {
       }
     }
     nodesRef.current = next;
-    // Immediately push positions into React state so new/removed nodes
-    // appear on the next render, regardless of whether the simulation is running.
-    onTick(next);
-  }, [width, height, onTick]);
+  }, [width, height]);
 
   const setEdges = useCallback((edges: ForceEdge[]) => {
     edgesRef.current = edges;

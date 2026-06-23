@@ -125,8 +125,14 @@ export default function NetworkPage() {
     // Round change → unpin everything so the full layout reorganises
     if (roundChanged) ids.forEach(id => forceLayout.unpinNode(id));
 
-    // setNodes always calls onTick internally, so new nodes appear immediately
     forceLayout.setNodes(ids);
+
+    // Directly sync nodesRef → React state. No callbacks, no RAF dependency.
+    // This guarantees new nodes are visible on the very next render.
+    setNodePositions(new Map(
+      Array.from(forceLayout.nodesRef.current.entries())
+        .map(([id, n]) => [id, { x: n.x, y: n.y }])
+    ));
 
     const edges = simState.connections.map((c) => ({ source: c.fromId, target: c.toId }));
     const routeEdgeSeen = new Set<string>();
