@@ -76,6 +76,7 @@ export default function NetworkPage() {
   const svgRef = useRef<SVGSVGElement>(null);
   const vpRef = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
   const prevRoundRef = useRef<number>(-1);
+  const prevParticipantCountRef = useRef<number>(0);
   const lastTickRef = useRef<number>(performance.now());
   const animRafRef = useRef<number | null>(null);
 
@@ -131,9 +132,12 @@ export default function NetworkPage() {
     }
     forceLayout.setEdges(edges);
 
-    // Only re-settle when the round changes (or on first load)
-    if (simState.round !== prevRoundRef.current) {
+    // Re-settle when round changes or participant count changes
+    const roundChanged = simState.round !== prevRoundRef.current;
+    const countChanged = ids.length !== prevParticipantCountRef.current;
+    if (roundChanged || countChanged) {
       prevRoundRef.current = simState.round;
+      prevParticipantCountRef.current = ids.length;
       setSettling(true);
       forceLayout.settle();
       // Clear the "settling" indicator after the simulation cools (~5s)
