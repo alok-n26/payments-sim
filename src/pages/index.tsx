@@ -149,7 +149,7 @@ export default function JoinPage() {
         )}
 
         {/* Blockchain mode indicator */}
-        {blockchainMode && !participant.isFrozen && !participant.isSanctioned && round === 5 && (
+        {blockchainMode && !participant.isFrozen && !participant.isSanctioned && round === 6 && (
           <div className="card border-purple-700 bg-purple-950/30 text-center space-y-1 py-4">
             <div className="text-2xl">⛓</div>
             <div className="text-purple-300 font-bold">Shared Ledger Active</div>

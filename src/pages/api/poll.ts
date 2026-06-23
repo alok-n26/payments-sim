@@ -45,6 +45,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       isFrozen: p.isFrozen,
       isSanctioned: p.isSanctioned,
       chainId: p.chainId,
+      currency: p.currency,
     })),
   };
 

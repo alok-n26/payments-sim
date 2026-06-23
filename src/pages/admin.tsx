@@ -6,7 +6,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { ROUND_CONFIGS } from "@/lib/rounds";
 import type { RoundId, Participant, Payment } from "@/types";
 
-const ROUND_IDS: RoundId[] = [0, 1, 2, 3, 4, 5, 6];
+const ROUND_IDS: RoundId[] = [0, 1, 2, 3, 4, 5, 6, 7];
 
 function formatTime(ts: number) {
   return new Date(ts).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -33,6 +33,7 @@ function ParticipantRow({ p, onFreeze, onSanction }: {
         <span className="text-white truncate block">{p.displayName}</span>
         {p.isCorrespondent && <span className="text-amber-400 text-xs">★ Correspondent</span>}
         {p.chainId && <span className="text-sky-400 text-xs"> · Chain {p.chainId}</span>}
+        {p.currency && !p.isCorrespondent && <span className={`text-xs ml-1 ${p.currency === "EUR" ? "text-blue-400" : "text-green-400"}`}>{p.currency === "EUR" ? "€" : "$"} {p.currency}</span>}
       </div>
       <div className="font-mono text-emerald-300 w-16 text-right">€{p.balance}</div>
       <div className="flex gap-1">
@@ -243,10 +244,10 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Round 6 triggers */}
-              {round === 6 && (
+              {/* Round 7 triggers */}
+              {round === 7 && (
                 <div className="card border-rose-800/50 space-y-3">
-                  <h2 className="text-sm font-semibold text-rose-400 uppercase tracking-wider">⚠️ Round 6 Chaos Triggers</h2>
+                  <h2 className="text-sm font-semibold text-rose-400 uppercase tracking-wider">⚠️ Round 7 Chaos Triggers</h2>
                   <div className="flex flex-wrap gap-2">
                     <button onClick={() => admin.triggerLostKey()} className="btn-danger">
                       🔐 Lost Private Key

@@ -6,9 +6,10 @@ const ROUND_COLORS: Record<RoundId, string> = {
   1: "from-sky-950 to-slate-900 border-sky-800",
   2: "from-amber-950 to-slate-900 border-amber-800",
   3: "from-blue-950 to-slate-900 border-blue-800",
-  4: "from-red-950 to-slate-900 border-red-800",
-  5: "from-purple-950 to-slate-900 border-purple-800",
-  6: "from-rose-950 to-slate-900 border-rose-800",
+  4: "from-teal-950 to-slate-900 border-teal-800",
+  5: "from-red-950 to-slate-900 border-red-800",
+  6: "from-purple-950 to-slate-900 border-purple-800",
+  7: "from-rose-950 to-slate-900 border-rose-800",
 };
 
 export function RoundBanner({ round }: { round: RoundId }) {

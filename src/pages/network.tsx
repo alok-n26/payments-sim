@@ -39,9 +39,10 @@ const ROUND_GRADIENT: Record<RoundId, string> = {
   1: "from-slate-950 to-sky-950",
   2: "from-slate-950 to-amber-950",
   3: "from-slate-950 to-blue-950",
-  4: "from-slate-950 to-red-950",
-  5: "from-slate-950 to-purple-950",
-  6: "from-slate-950 to-rose-950",
+  4: "from-slate-950 to-teal-950",
+  5: "from-slate-950 to-red-950",
+  6: "from-slate-950 to-purple-950",
+  7: "from-slate-950 to-rose-950",
 };
 
 // Convert a client mouse position to SVG viewBox coordinates
@@ -463,9 +464,14 @@ export default function NetworkPage() {
                         {p.displayName.length > 14 ? p.displayName.slice(0, 13) + "…" : p.displayName}
                       </text>
                       <text textAnchor="middle" dy={9} fill={p.isFrozen ? "#64748b" : "#a5f3fc"} fontSize={11} fontWeight="700" fontFamily="monospace">
-                        {p.isFrozen ? "🔐" : `€${p.balance}`}
+                        {p.isFrozen ? "🔐" : `${round === 4 && p.currency === "USD" ? "$" : "€"}${p.balance}`}
                       </text>
                       {p.isSanctioned && <text textAnchor="middle" dy={22} fill="#fca5a5" fontSize={9}>SANCTIONED</text>}
+                      {round === 4 && p.currency && !p.isCorrespondent && (
+                        <text textAnchor="middle" dy={22} fill={p.currency === "EUR" ? "#93c5fd" : "#6ee7b7"} fontSize={9} fontWeight="bold">
+                          {p.currency}
+                        </text>
+                      )}
                       {p.chainId && (
                         <text textAnchor="middle" dy={22} fill={p.chainId === "A" ? "#93c5fd" : "#c4b5fd"} fontSize={9} fontWeight="bold">
                           Chain {p.chainId}

@@ -16,6 +16,7 @@ const KIND_ICON: Record<EventKind, string> = {
   ledger_updated:     "📒",
   chain_split:        "⛓️",
   bridge_attempt:     "🌉",
+  fx_conversion:      "💱",
   system:             "ℹ️",
 };
 

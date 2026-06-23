@@ -53,11 +53,22 @@ export function BankCard({ participant, round, blockchainMode, chainSplit, parti
                 Chain {participant.chainId}
               </div>
             )}
+            {round === 4 && participant.currency && !participant.isCorrespondent && (
+              <div className={`mt-1 text-xs px-2 py-0.5 rounded-full font-mono ${
+                participant.currency === "EUR"
+                  ? "bg-blue-900/60 text-blue-300 border border-blue-700"
+                  : "bg-green-900/60 text-green-300 border border-green-700"
+              }`}>
+                {participant.currency === "EUR" ? "€ EUR" : "$ USD"}
+              </div>
+            )}
           </div>
         </div>
 
         <div className="flex items-baseline gap-1 mb-3">
-          <span className="text-4xl font-black text-white">€{participant.balance.toLocaleString()}</span>
+          <span className="text-4xl font-black text-white">
+            {round === 4 && participant.currency === "USD" ? "$" : "€"}{participant.balance.toLocaleString()}
+          </span>
           <span className="text-slate-400 text-sm">balance</span>
         </div>
 

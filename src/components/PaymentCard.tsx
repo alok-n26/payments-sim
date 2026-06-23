@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Payment, ClientState } from "@/types";
+import { FX_SPREAD } from "@/lib/rounds";
 import { StatusBadge } from "./StatusBadge";
 import { RouteDisplay } from "./RouteDisplay";
 
@@ -38,10 +39,19 @@ export function PaymentCard({ payment, participantId, allParticipants, onAnswerC
           </span>
           {" "}
           <span className="font-bold text-lg">
-            €{isOutgoing ? payment.amount : payment.netAmount}
+            {isOutgoing
+              ? `${payment.fromCurrency === "USD" ? "$" : "€"}${payment.amount}`
+              : `${payment.toCurrency === "USD" ? "$" : "€"}${payment.netAmount}`}
           </span>
-          {payment.netAmount !== payment.amount && isIncoming && (
-            <span className="text-xs text-slate-500 ml-1">(sent: €{payment.amount})</span>
+          {payment.fromCurrency && payment.toCurrency && payment.fromCurrency !== payment.toCurrency && isIncoming && (
+            <span className="text-xs text-slate-500 ml-1">
+              (sent: {payment.fromCurrency === "USD" ? "$" : "€"}{payment.amount})
+            </span>
+          )}
+          {payment.fromCurrency && payment.toCurrency && payment.fromCurrency !== payment.toCurrency && isOutgoing && (
+            <span className="text-xs text-slate-500 ml-1">
+              → recipient gets {payment.toCurrency === "USD" ? "$" : "€"}{payment.netAmount}
+            </span>
           )}
         </div>
         <StatusBadge status={payment.status} />
@@ -56,6 +66,12 @@ export function PaymentCard({ payment, participantId, allParticipants, onAnswerC
 
       {payment.route && (
         <RouteDisplay route={payment.route} allParticipants={allParticipants} />
+      )}
+
+      {payment.fromCurrency && payment.toCurrency && payment.fromCurrency !== payment.toCurrency && payment.fxRate && (
+        <div className="text-xs text-amber-300 bg-amber-900/20 rounded-lg px-2 py-1">
+          💱 FX: 1 {payment.fromCurrency} = {payment.fxRate} {payment.toCurrency} · spread: {payment.toCurrency === "USD" ? "$" : "€"}{FX_SPREAD} {payment.toCurrency}
+        </div>
       )}
 
       {payment.status === "message_sent" && (

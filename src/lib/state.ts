@@ -14,6 +14,8 @@ import {
   CORRESPONDENT_FEE,
   CORRESPONDENT_DELAY_MS,
   COMPLIANCE_QUESTIONS,
+  FX_RATE,
+  FX_SPREAD,
 } from "./rounds";
 
 // ─── HMR-safe singleton ───────────────────────────────────────────────────────
@@ -124,6 +126,18 @@ export function joinOrRejoin(participantId: string | undefined, displayName?: st
 
   s.participants.push(participant);
 
+  // Late-joiners in round 4 get a currency and a correspondent connection
+  if (s.round === 4) {
+    const eurCount = s.participants.filter((p) => !p.isCorrespondent && p.currency === "EUR").length;
+    const usdCount = s.participants.filter((p) => !p.isCorrespondent && p.currency === "USD").length;
+    participant.currency = eurCount <= usdCount ? "EUR" : "USD";
+    if (s.correspondentIds.length > 0) {
+      const correspondents = s.participants.filter((p) => p.isCorrespondent);
+      const c = correspondents[Math.floor(Math.random() * correspondents.length)];
+      if (c) s.connections.push({ fromId: id, toId: c.id });
+    }
+  }
+
   // Late-joiners in round 2 get connected to a random correspondent
   if (s.round === 2 && s.correspondentIds.length > 0) {
     const correspondents = s.participants.filter((p) => p.isCorrespondent);
@@ -143,13 +157,13 @@ export function setRound(round: RoundId) {
   const s = st();
   s.round = round;
 
-  if (round === 5 || round === 6) {
+  if (round === 6 || round === 7) {
     s.blockchainMode = true;
   } else {
     s.blockchainMode = false;
   }
 
-  if (round !== 6) {
+  if (round !== 7) {
     s.chainSplit = false;
   }
 
@@ -160,6 +174,13 @@ export function setRound(round: RoundId) {
   if (round === 2) {
     if (s.correspondentIds.length === 0) assignCorrespondents();
     else generateCorrespondentConnections(); // re-wire if correspondents already assigned
+  }
+
+  if (round === 4) {
+    // Ensure correspondent network exists (may have skipped round 2)
+    if (s.correspondentIds.length === 0) assignCorrespondents();
+    else if (s.connections.length === 0) generateCorrespondentConnections();
+    assignCurrencies();
   }
 
   addEvent("round_change", `Advanced to Round ${round}`);
@@ -210,6 +231,21 @@ function generateCorrespondentConnections() {
   }
 
   s.connections = conns;
+}
+
+// ─── Currency assignment (Round 4) ────────────────────────────────────────────
+
+function assignCurrencies() {
+  const s = st();
+  const regularBanks = s.participants.filter((p) => !p.isCorrespondent);
+  regularBanks.forEach((p, i) => {
+    p.currency = i % 2 === 0 ? "EUR" : "USD";
+  });
+  // Correspondents hold both — no currency restriction
+  s.participants.filter((p) => p.isCorrespondent).forEach((p) => {
+    p.currency = undefined;
+  });
+  addEvent("system", `Currencies assigned: ${regularBanks.filter((p) => p.currency === "EUR").length} EUR banks, ${regularBanks.filter((p) => p.currency === "USD").length} USD banks`);
 }
 
 // ─── Correspondents (Round 2) ─────────────────────────────────────────────────
@@ -371,6 +407,59 @@ export function initiatePayment(fromId: string, toId: string, amount: number): P
       }
     }, 5000 + Math.random() * 5000);
   } else if (s.round === 4) {
+    // Cross-border FX: route via correspondents, convert currency if needed
+    const route = findRouteViaCorrespondents(fromId, toId);
+    if (!route) {
+      payment.status = "failed";
+      payment.failReason = "No correspondent route found";
+    } else {
+      const fromCurrency = sender.currency ?? "EUR";
+      const toCurrency = recipient.currency ?? "EUR";
+      const isCrossCurrency = !recipient.isCorrespondent && !sender.isCorrespondent && fromCurrency !== toCurrency;
+
+      payment.fromCurrency = fromCurrency;
+      payment.toCurrency = toCurrency;
+      payment.fxRate = isCrossCurrency ? FX_RATE : 1;
+      payment.route = route;
+      payment.status = "routing";
+      sender.balance -= amount;
+
+      if (isCrossCurrency) {
+        // EUR→USD: multiply by FX_RATE then subtract spread fee
+        // USD→EUR: divide by FX_RATE then subtract spread fee
+        const converted = fromCurrency === "EUR"
+          ? Math.round(amount * FX_RATE * 100) / 100
+          : Math.round((amount / FX_RATE) * 100) / 100;
+        payment.netAmount = Math.max(0, converted - FX_SPREAD);
+      } else {
+        payment.netAmount = amount - route.fees;
+      }
+
+      const fxLabel = isCrossCurrency
+        ? ` (FX: 1 ${fromCurrency} = ${FX_RATE} ${toCurrency}, spread: ${FX_SPREAD} ${toCurrency})`
+        : "";
+
+      addEvent(
+        isCrossCurrency ? "fx_conversion" : "payment_initiated",
+        `${sender.displayName} sending ${fromCurrency === "EUR" ? "€" : "$"}${amount} → ${recipient.displayName} receives ${toCurrency === "EUR" ? "€" : "$"}${payment.netAmount}${fxLabel}`,
+        fromId,
+        paymentId
+      );
+
+      setTimeout(() => {
+        const currentPayment = st().payments.find((p) => p.id === paymentId);
+        const currentRecipient = getParticipant(toId);
+        if (currentPayment && currentRecipient && currentPayment.status === "routing") {
+          currentRecipient.balance += currentPayment.netAmount;
+          currentPayment.status = "settled";
+          currentPayment.settledAt = Date.now();
+          const sentLabel = `${fromCurrency === "EUR" ? "€" : "$"}${amount}`;
+          const receivedLabel = `${toCurrency === "EUR" ? "€" : "$"}${currentPayment.netAmount}`;
+          addEvent("payment_settled", `Settled: ${sender.displayName} sent ${sentLabel} → ${recipient.displayName} received ${receivedLabel}`, toId, paymentId);
+        }
+      }, route.delayMs);
+    }
+  } else if (s.round === 5) {
     if (Math.random() < 0.4) {
       const q = COMPLIANCE_QUESTIONS[Math.floor(Math.random() * COMPLIANCE_QUESTIONS.length)];
       payment.status = "compliance_hold";
@@ -384,7 +473,7 @@ export function initiatePayment(fromId: string, toId: string, amount: number): P
       payment.settledAt = Date.now();
       addEvent("payment_settled", `${sender.displayName} → ${recipient.displayName} €${amount} (compliance passed)`, fromId, paymentId);
     }
-  } else if (s.round === 5 || s.round === 6) {
+  } else if (s.round === 6 || s.round === 7) {
     if (s.chainSplit && sender.chainId !== recipient.chainId) {
       const bridgeFee = 3;
       payment.netAmount = amount - bridgeFee;

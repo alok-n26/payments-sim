@@ -31,20 +31,27 @@ export const ROUND_CONFIGS: Record<RoundId, RoundConfig> = {
   },
   4: {
     id: 4,
+    title: "Cross-border payments: when currencies don't match",
+    concept: "Bank A holds euros. Bank B only accepts dollars. Someone in the middle has to convert — and charge for it.",
+    debriefText: "EUR banks and USD banks can't pay each other directly. Payments route through a correspondent that does the FX conversion. Watch the amount change as it crosses the currency boundary.",
+    presenterNotes: "Half the banks are now EUR, half USD. Generate tasks to trigger cross-currency payments. Correspondent banks perform the FX conversion at the mid-market rate plus a spread. Show participants the payment card: 'sent €100, received $106'. Ask: who sets the rate? Who pockets the spread? How long does the rate hold?",
+  },
+  5: {
+    id: 5,
     title: "Compliance ruins the party",
     concept: "AML, KYC and sanctions checks block or delay payments — for good reasons.",
     debriefText: "Some payments get flagged for compliance review. Participants must answer a compliance question. Wrong answers block the payment permanently.",
     presenterNotes: "Trigger compliance checks from the admin panel. Watch some payments get stuck. Manually release or block them. Ask the audience: should a bank process a payment just because it technically can?",
   },
-  5: {
-    id: 5,
+  6: {
+    id: 6,
     title: "Blockchain enters the chat",
     concept: "A shared ledger removes reconciliation delays and intermediaries.",
     debriefText: "Payments update instantly across all participants. No correspondent banks. No settlement delay. The ledger is the single source of truth.",
     presenterNotes: "Toggle blockchain mode. Generate new tasks. Show how payments settle instantly. Highlight what's missing: identity, governance, compliance. Ask: does fast settlement solve everything?",
   },
-  6: {
-    id: 6,
+  7: {
+    id: 7,
     title: "The trap: payments are not just a database problem",
     concept: "Blockchain solves reconciliation. It doesn't solve identity, governance, compliance, or reversibility.",
     debriefText: "\"The hardest part of moving money isn't moving money.\" Use the admin triggers to demonstrate each failure mode.",
@@ -55,6 +62,8 @@ export const ROUND_CONFIGS: Record<RoundId, RoundConfig> = {
 export const STARTING_BALANCE = 1000;
 export const CORRESPONDENT_FEE = 1;
 export const CORRESPONDENT_DELAY_MS = 2000;
+export const FX_RATE = 1.08;   // 1 EUR = 1.08 USD (mid-market)
+export const FX_SPREAD = 2;    // flat USD fee taken by converting correspondent
 export const COMPLIANCE_QUESTIONS = [
   {
     question: "What is the purpose of this payment?",

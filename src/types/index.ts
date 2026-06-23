@@ -1,6 +1,6 @@
 // ─── Core domain types ──────────────────────────────────────────────────────
 
-export type RoundId = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+export type RoundId = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export interface Participant {
   id: string;           // uuid
@@ -10,7 +10,8 @@ export interface Participant {
   isCorrespondent: boolean;
   isFrozen: boolean;    // lost private key / sanctioned
   isSanctioned: boolean;
-  chainId?: "A" | "B";  // round 6 fragmented chains
+  chainId?: "A" | "B";  // round 7 fragmented chains
+  currency?: "EUR" | "USD";  // round 4 cross-border FX
   joinedAt: number;     // epoch ms
   lastSeenAt: number;
 }
@@ -46,6 +47,9 @@ export interface Payment {
   failReason?: string;
   isFraud?: boolean;
   roundId: RoundId;
+  fromCurrency?: "EUR" | "USD";
+  toCurrency?: "EUR" | "USD";
+  fxRate?: number;
 }
 
 export interface ComplianceQuestion {
@@ -70,6 +74,7 @@ export type EventKind =
   | "ledger_updated"
   | "chain_split"
   | "bridge_attempt"
+  | "fx_conversion"
   | "system";
 
 export interface SimEvent {
@@ -129,7 +134,7 @@ export interface ClientState {
   blockchainMode: boolean;
   chainSplit: boolean;
   participantCount: number;
-  allParticipants: Pick<Participant, "id" | "bankId" | "displayName" | "isCorrespondent" | "isFrozen" | "isSanctioned" | "chainId">[];
+  allParticipants: Pick<Participant, "id" | "bankId" | "displayName" | "isCorrespondent" | "isFrozen" | "isSanctioned" | "chainId" | "currency">[];
 }
 
 export interface SendPaymentRequest {
