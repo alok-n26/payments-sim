@@ -137,7 +137,9 @@ export default function NetworkPage() {
     const edges = simState.connections.map((c) => ({ source: c.fromId, target: c.toId }));
     const routeEdgeSeen = new Set<string>();
     for (const p of simState.payments) {
-      const hops = p.route?.hops ?? [];
+      if (!p.route) continue;
+      if (!["routing", "message_sent", "compliance_hold"].includes(p.status)) continue;
+      const hops = p.route.hops;
       for (let i = 0; i < hops.length - 1; i++) {
         const a = hops[i]; const b = hops[i + 1];
         if (a === "bridge" || b === "bridge") continue;
@@ -404,12 +406,13 @@ export default function NetworkPage() {
                   );
                 })}
 
-                {/* Route edges */}
+                {/* Route edges — only for in-flight payments */}
                 {(() => {
                   const routeEdges: { a: string; b: string }[] = [];
                   const seen = new Set<string>();
                   for (const p of simState.payments) {
                     if (!p.route) continue;
+                    if (!["routing", "message_sent", "compliance_hold"].includes(p.status)) continue;
                     const hops = p.route.hops.filter((h) => h !== "bridge");
                     for (let i = 0; i < hops.length - 1; i++) {
                       const key = [hops[i], hops[i + 1]].sort().join(":");
